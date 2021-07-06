@@ -14,8 +14,8 @@
 ; Information
 
   !define PRODUCT_NAME "Mindustry"
-  !define PRODUCT_VERSION "6.0"
-  !define PRODUCT_BUILD_NUMBER "126.2"
+  !define PRODUCT_VERSION "X.X"
+  !define PRODUCT_BUILD_NUMBER "Y.Y"
 
   VIProductVersion "${PRODUCT_VERSION}.${PRODUCT_BUILD_NUMBER}"
   VIAddVersionKey ProductName "${PRODUCT_NAME}"

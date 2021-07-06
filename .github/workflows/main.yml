@@ -1,0 +1,84 @@
+name: Compile installer
+
+on:
+  schedule:
+    - cron: '13 14 * * *'
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Get Mindustry version
+        id: mindustry_version
+        run: |
+          RELEASE_NAME=(`curl -s "https://api.github.com/repos/Anuken/Mindustry/releases/latest" | jq -r '.name'`)
+          VERSION=${RELEASE_NAME[0]}
+          NUMBER=${RELEASE_NAME[2]}
+          if [ ! `echo $NUMBER | grep -F .` ]; then NUMBER=$NUMBER.0; fi
+          LONG_VERSION=$VERSION.$NUMBER
+
+          echo $LONG_VERSION > version_cache
+
+          store() { echo "::set-output name=$1::$2"; }
+          store VERSION $VERSION
+          store NUMBER $NUMBER
+          store LONG_VERSION $LONG_VERSION
+
+      - uses: actions/cache@v2
+        id: cache
+        with:
+          path: version_cache
+          key: mindustry-${{ steps.mindustry_version.outputs.LONG_VERSION }}
+
+      - name: Apply versions to install.nsi
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sed -i 's/X.X/${{ steps.mindustry_version.outputs.VERSION }}/' install.nsi
+          sed -i 's/Y.Y/${{ steps.mindustry_version.outputs.NUMBER }}/' install.nsi
+          php .github/workflows/rewriter.php
+
+      - name: Get game files from itch.io
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          post() { curl -s $1 -H 'Content-Type: application/x-www-form-urlencoded' --data-raw '' | jq -r .url; }
+          download() { post 'https://anuke.itch.io/mindustry/file/'{$1} | xargs curl -JLOs; }
+          URL=`post 'https://anuke.itch.io/mindustry/download_url'`
+          ID=(`curl -s $URL | grep -oP '(?<=data-upload_id=").*?(?=")'`)
+          download ${ID[0]} &
+          download ${ID[1]} &
+          wait
+          for f in *.zip; do unzip -q -d "${f%*.zip}" "$f"; done
+
+      - name: Create installer
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -qq -y nsis > /dev/null
+          makensis install.nsi
+
+      - name: Create Release
+        if: steps.cache.outputs.cache-hit != 'true'
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.mindustry_version.outputs.LONG_VERSION }}
+          release_name: PocketMine-MP ${{ steps.mindustry_version.outputs.LONG_VERSION }}
+          body: |
+            Release PocketMine-MP ${{ steps.mindustry_version.outputs.LONG_VERSION }}.
+            You can see changelogs [here](https://github.com/pmmp/PocketMine-MP/blob/${{ steps.mindustry_version.outputs.LONG_VERSION }}/changelogs/${{ steps.mindustry_version.outputs.CHANGELOG }}).
+
+      - name: Upload Release Asset
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./PocketMine-MP-${{ steps.mindustry_version.outputs.LONG_VERSION }}.exe
+          asset_name: PocketMine-MP-${{ steps.mindustry_version.outputs.LONG_VERSION }}.exe
+          asset_content_type: application/octet-stream
