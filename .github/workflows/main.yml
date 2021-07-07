@@ -43,15 +43,6 @@ jobs:
           sed -i 's/X.X/${{ steps.mindustry_version.outputs.VERSION }}/' install.nsi
           sed -i 's/Y.Y/${{ steps.mindustry_version.outputs.NUMBER }}/' install.nsi
 
-      - name: Add file deletion scripts for uninstaller
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir merged_files
-          cp -r mindustry-windows-32-bit/* merged_files
-          cp -r mindustry-windows-64-bit/* merged_files
-          php .github/workflows/rewriter.php merged_files install.nsi new.nsi
-          cat new.nsi
-
       - name: Get game files from itch.io
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
@@ -63,6 +54,15 @@ jobs:
           download ${ID[1]} &
           wait
           for f in *.zip; do unzip -q -d "${f%*.zip}" "$f"; done
+
+      - name: Add file deletion scripts for uninstaller
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir merged_files
+          cp -r mindustry-windows-32-bit/* merged_files
+          cp -r mindustry-windows-64-bit/* merged_files
+          php .github/workflows/rewriter.php merged_files install.nsi new.nsi
+          cat new.nsi
 
       - name: Create installer
         if: steps.cache.outputs.cache-hit != 'true'
