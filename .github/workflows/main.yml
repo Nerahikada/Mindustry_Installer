@@ -78,7 +78,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.mindustry_version.outputs.LONG_VERSION }}
-          release_name: Mindustry ${{ steps.mindustry_version.outputs.VERSION }} Build ${{ steps.mindustry_version.outputs.NUMBER }}
+          release_name: ${{ steps.mindustry_version.outputs.VERSION }} Build ${{ steps.mindustry_version.outputs.NUMBER }}
           body: |
             Release Mindustry ${{ steps.mindustry_version.outputs.VERSION }} Build ${{ steps.mindustry_version.outputs.NUMBER }}.
             You can see [github release page](${{ steps.mindustry_version.outputs.RELEASE_PAGE }}).
