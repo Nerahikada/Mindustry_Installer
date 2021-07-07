@@ -15,11 +15,13 @@ jobs:
       - name: Get Mindustry version
         id: mindustry_version
         run: |
-          RELEASE_NAME=(`curl -s "https://api.github.com/repos/Anuken/Mindustry/releases/latest" | jq -r '.name'`)
+          release=`curl -s "https://api.github.com/repos/Anuken/Mindustry/releases/latest"`
+          RELEASE_NAME=(`echo $release | jq -r '.name'`)
           VERSION=${RELEASE_NAME[0]}
           NUMBER=${RELEASE_NAME[2]}
           if [ ! `echo $NUMBER | grep -F .` ]; then NUMBER=$NUMBER.0; fi
           LONG_VERSION=$VERSION.$NUMBER
+          RELEASE_PAGE=`echo $release | jq -r '.html_url'`
 
           echo $LONG_VERSION > version_cache
 
@@ -27,6 +29,7 @@ jobs:
           store VERSION $VERSION
           store NUMBER $NUMBER
           store LONG_VERSION $LONG_VERSION
+          store RELEASE_PAGE $RELEASE_PAGE
 
       - uses: actions/cache@v2
         id: cache
@@ -39,7 +42,15 @@ jobs:
         run: |
           sed -i 's/X.X/${{ steps.mindustry_version.outputs.VERSION }}/' install.nsi
           sed -i 's/Y.Y/${{ steps.mindustry_version.outputs.NUMBER }}/' install.nsi
-          php .github/workflows/rewriter.php
+
+      - name: Add file deletion scripts for uninstaller
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir merged_files
+          cp -r mindustry-windows-32-bit/* merged_files
+          cp -r mindustry-windows-64-bit/* merged_files
+          php .github/workflows/rewriter.php merged_files install.nsi new.nsi
+          cat new.nsi
 
       - name: Get game files from itch.io
         if: steps.cache.outputs.cache-hit != 'true'
@@ -57,7 +68,7 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update -qq && sudo apt-get install -qq -y nsis > /dev/null
-          makensis install.nsi
+          makensis new.nsi
 
       - name: Create Release
         if: steps.cache.outputs.cache-hit != 'true'
@@ -67,10 +78,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.mindustry_version.outputs.LONG_VERSION }}
-          release_name: PocketMine-MP ${{ steps.mindustry_version.outputs.LONG_VERSION }}
+          release_name: Mindustry ${{ steps.mindustry_version.outputs.VERSION }} Build ${{ steps.mindustry_version.outputs.NUMBER }}
           body: |
-            Release PocketMine-MP ${{ steps.mindustry_version.outputs.LONG_VERSION }}.
-            You can see changelogs [here](https://github.com/pmmp/PocketMine-MP/blob/${{ steps.mindustry_version.outputs.LONG_VERSION }}/changelogs/${{ steps.mindustry_version.outputs.CHANGELOG }}).
+            Release Mindustry ${{ steps.mindustry_version.outputs.VERSION }} Build ${{ steps.mindustry_version.outputs.NUMBER }}.
+            You can see [github release page](${{ steps.mindustry_version.outputs.RELEASE_PAGE }}).
 
       - name: Upload Release Asset
         if: steps.cache.outputs.cache-hit != 'true'
@@ -79,6 +90,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./PocketMine-MP-${{ steps.mindustry_version.outputs.LONG_VERSION }}.exe
-          asset_name: PocketMine-MP-${{ steps.mindustry_version.outputs.LONG_VERSION }}.exe
+          asset_path: ./Mindustry_${{ steps.mindustry_version.outputs.VERSION }}_${{ steps.mindustry_version.outputs.NUMBER }}.exe
+          asset_name: Mindustry_${{ steps.mindustry_version.outputs.VERSION }}_${{ steps.mindustry_version.outputs.NUMBER }}.exe
           asset_content_type: application/octet-stream

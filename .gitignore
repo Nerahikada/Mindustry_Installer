@@ -1,3 +1,5 @@
 *.exe
 *.zip
 mindustry-windows-*
+merged_files
+new.nsi
